@@ -33,6 +33,8 @@ from enum import Enum, IntEnum, IntFlag
 from typing import Dict, List, Literal, Union
 from typing_extensions import NotRequired, TypedDict
 
+# from monitors4codegen.multilspy.lsp_protocol_handler.lsp_constants import LSPConstants
+
 URI = str
 DocumentUri = str
 Uint = int
@@ -2907,6 +2909,13 @@ class TextDocumentPositionParams(TypedDict):
     position: "Position"
     """ The position inside the text document. """
 
+    @staticmethod
+    def get_params_dict(uri: str, line: int, col: int) -> "TextDocumentPositionParams":
+        return {
+            **TextDocumentIdentifier.get_params_dict(uri),
+            **Position.get_params_dict(line, col)
+        }
+
 
 class WorkDoneProgressParams(TypedDict):
     workDoneToken: NotRequired["ProgressToken"]
@@ -2957,6 +2966,19 @@ class Range(TypedDict):
     end: "Position"
     """ The range's end position. """
 
+    # @staticmethod
+    # def get_params_dict(start_line: int, start_col: int,
+    #                     end_line: int, end_col: int) -> Dict[str, "Range"]:
+    #     s = Position.get_params_dict(start_line, start_col)
+    #     s[LSPConstants.START] = s.pop(LSPConstants.POSITION)
+    #     e = Position.get_params_dict(end_line, end_col)
+    #     e[LSPConstants.END] = e.pop(LSPConstants.POSITION)
+    #     return {
+    #         LSPConstants.RANGE: {
+    #             **s, **e
+    #         }
+    #     }
+
 
 class ImplementationOptions(TypedDict):
     workDoneProgress: NotRequired[bool]
@@ -2996,6 +3018,14 @@ class TextDocumentIdentifier(TypedDict):
 
     uri: "DocumentUri"
     """ The text document's uri. """
+
+    # @staticmethod
+    # def get_params_dict(uri: str) -> Dict[str, "TextDocumentIdentifier"]:
+    #     return {
+    #         LSPConstants.TEXT_DOCUMENT: {
+    #             LSPConstants.URI: uri
+    #         }
+    #     }
 
 
 class Color(TypedDict):
@@ -3065,6 +3095,14 @@ class Position(TypedDict):
 
     If the character value is greater than the line length it defaults back to the
     line length. """
+    # @staticmethod
+    # def get_params_dict(lineno: int, colno: int) -> Dict[str, "Position"]:
+    #     return {
+    #         LSPConstants.POSITION: {
+    #             LSPConstants.LINE: lineno,
+    #             LSPConstants.CHARACTER: colno
+    #         }
+    #     }
 
 
 class SelectionRangeOptions(TypedDict):

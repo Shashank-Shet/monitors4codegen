@@ -9,12 +9,12 @@ import os
 import pathlib
 import stat
 from contextlib import asynccontextmanager
-from typing import AsyncIterator, Iterable
+from typing import Any, AsyncIterator, Iterable, List, Tuple, Union
 
 from monitors4codegen.multilspy.multilspy_logger import MultilspyLogger
 from monitors4codegen.multilspy.language_server import LanguageServer
 from monitors4codegen.multilspy.lsp_protocol_handler.server import ProcessLaunchInfo
-from monitors4codegen.multilspy.lsp_protocol_handler.lsp_types import InitializeParams
+from monitors4codegen.multilspy.lsp_protocol_handler.lsp_types import CodeActionParams, InitializeParams
 from monitors4codegen.multilspy.multilspy_config import MultilspyConfig
 from monitors4codegen.multilspy.multilspy_exceptions import MultilspyException
 from monitors4codegen.multilspy.multilspy_utils import FileUtils, PlatformUtils, PlatformId, DotnetVersion
@@ -105,8 +105,15 @@ class OmniSharp(LanguageServer):
             config, logger, repository_root_path, ProcessLaunchInfo(cmd=cmd, cwd=repository_root_path), "csharp"
         )
 
-        self.definition_available = asyncio.Event()
-        self.references_available = asyncio.Event()
+        # TODO: Remove below commented code: implemented in base class
+        # self.definition_available = asyncio.Event()
+        # self.references_available = asyncio.Event()
+        # self.code_actions_available = asyncio.Event()
+        # self.code_actions_resolutions_available = asyncio.Event()
+        # self.completions_available = asyncio.Event()
+        # self.document_diagnostics_available = asyncio.Event()
+        # self.service_ready_event = asyncio.Event()
+        # self.initialize_searcher_command_available = asyncio.Event()
 
     def _get_initialize_params(self, repository_absolute_path: str) -> InitializeParams:
         """
@@ -222,6 +229,12 @@ class OmniSharp(LanguageServer):
                     self.references_available.set()
                 if registration["method"] == "textDocument/completion":
                     self.completions_available.set()
+                if registration["method"] == "textDocument/codeAction":
+                    self.code_actions_available.set()
+                if registration["method"] == "textDocument/diagnostic":
+                    self.document_diagnostics_available.set()
+                if registration["method"] == "codeAction/resolve":
+                    self.code_actions_resolutions_available.set()
 
         async def lang_status_handler(params):
             # TODO: Should we wait for
@@ -400,3 +413,23 @@ class OmniSharp(LanguageServer):
 
             await self.server.shutdown()
             await self.server.stop()
+
+    async def get_code_actions(
+        self, file_path, range, diagnostics
+    ) -> Union[List, Tuple[List, Any]]:
+        self.import_choices=[]
+        code_action_params: CodeActionParams = {
+            "textDocument": {"uri": pathlib.Path(file_path).as_uri()},
+            "range": range,
+            "context": {"diagnostics":diagnostics}
+        }
+        response = None
+        num_retries = 0
+        while response is None:
+            await self.code_actions_available.wait()
+            response = await self.server.send.code_action(
+                code_action_params
+            )
+            num_retries += 1
+
+        return response, self.import_choices   ### In case there are import choices we return both choices

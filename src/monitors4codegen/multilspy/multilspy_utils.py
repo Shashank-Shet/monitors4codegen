@@ -95,6 +95,17 @@ class FileUtils:
     """
 
     @staticmethod
+    def create_file(logger: MultilspyLogger, file_path: str, content: str = None) -> None:
+        """ Creates a file at the given path with the given content. """
+        try:
+            with open(file_path, "w") as out_file:
+                if content:
+                    out_file.write(content)
+        except Exception as exc:
+            logger.log(f"File creation '{file_path}' failed: {exc}", logging.ERROR)
+            raise MultilspyException("File creation failed.") from None
+
+    @staticmethod
     def read_file(logger: MultilspyLogger, file_path: str) -> str:
         """
         Reads the file at the given path and returns the contents as a string.
@@ -112,7 +123,7 @@ class FileUtils:
             raise MultilspyException("File read failed.") from None
         logger.log(f"File read '{file_path}' failed: Unsupported encoding.", logging.ERROR)
         raise MultilspyException(f"File read '{file_path}' failed: Unsupported encoding.") from None
-    
+
     @staticmethod
     def download_file(logger: MultilspyLogger, url: str, target_path: str) -> None:
         """
@@ -187,6 +198,7 @@ class DotnetVersion(str, Enum):
     V4 = "4"
     V6 = "6"
     V7 = "7"
+    V8 = "8"
     VMONO = "mono"
 
 class PlatformUtils:
@@ -228,7 +240,9 @@ class PlatformUtils:
                     break
             if version == '':
                 raise MultilspyException("dotnet not found on the system")
-            if version.startswith("7"):
+            if version.startswith("8"):
+                return DotnetVersion.V8
+            elif version.startswith("7"):
                 return DotnetVersion.V7
             elif version.startswith("6"):
                 return DotnetVersion.V6

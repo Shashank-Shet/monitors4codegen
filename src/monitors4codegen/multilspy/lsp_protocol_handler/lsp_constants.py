@@ -57,3 +57,7 @@ class LSPConstants:
 
     # key used to represent children in document symbols
     CHILDREN = "children"
+
+    START = "start"
+
+    END = "end"

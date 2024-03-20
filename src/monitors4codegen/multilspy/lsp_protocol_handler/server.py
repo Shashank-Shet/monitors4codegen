@@ -28,14 +28,16 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
+from ast import Tuple
 import asyncio
 import dataclasses
 import json
 import os
-from typing import Any, Dict, List, Optional, Union
+import pathlib
+from typing import Any, Dict, List, Optional, Union, Callable
 
 from .lsp_requests import LspNotification, LspRequest
-from .lsp_types import ErrorCodes
+from .lsp_types import CodeActionParams, ErrorCodes
 
 StringDict = Dict[str, Any]
 PayloadLike = Union[List[StringDict], StringDict, None]
@@ -195,6 +197,10 @@ class LanguageServerHandler:
         self.tasks = {}
         self.task_counter = 0
         self.loop = None
+        self.notification_list = []
+        self.notification_semaphores: Dict[str, asyncio.Event] = {}
+        # self.filter_notification: Callable[[StringDict], bool] = lambda _: True
+        # self.get_notification_key: Callable[[StringDict], str] = None
 
     async def start(self) -> None:
         """
@@ -315,6 +321,26 @@ class LanguageServerHandler:
         except json.JSONDecodeError as ex:
             self._log(f"malformed JSON: {ex}")
 
+    def add_notification_semaphore(self, key: str):
+        """ Adds an asyncio.Event obj to a map using the provided key"""
+        self.notification_semaphores[key] = asyncio.Event()
+
+    def remove_notification_semaphore(self, key: str):
+        """ Removes an asyncio.Event obj from a map using the provided key"""
+        self.notification_semaphores.pop(key)
+
+    async def wait_for_notification(self, key: str):
+        """ Wait for the notification semaphore to be released using the provided key"""
+        await self.notification_semaphores[key].wait()
+
+    def set_notification_semaphore(self, key: str):
+        """ Set the notification semaphore to released using the provided key"""
+        self.notification_semaphores[key].set()
+
+    def clear_notification_semaphore(self, key: str):
+        """ Clear the notification semaphore using the provided key"""
+        self.notification_semaphores[key].clear()
+
     async def _receive_payload(self, payload: StringDict) -> None:
         """
         Determine if the payload received from server is for a request, response, or notification and invoke the appropriate handler
@@ -326,6 +352,7 @@ class LanguageServerHandler:
                 if "id" in payload:
                     await self._request_handler(payload)
                 else:
+                    self.notification_list.append(payload)
                     await self._notification_handler(payload)
             elif "id" in payload:
                 await self._response_handler(payload)
