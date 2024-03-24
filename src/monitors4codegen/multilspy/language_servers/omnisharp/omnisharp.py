@@ -58,16 +58,23 @@ class OmniSharp(LanguageServer):
     Provides C# specific instantiation of the LanguageServer class. Contains various configurations and settings specific to C#.
     """
 
-    def __init__(self, config: MultilspyConfig, logger: MultilspyLogger, repository_root_path: str):
+    def __init__(self,
+                 config: MultilspyConfig,
+                 logger: MultilspyLogger,
+                 repository_root_path: str,
+                 sln_path: str = None):
         """
         Creates an OmniSharp instance. This class is not meant to be instantiated directly. Use LanguageServer.create() instead.
         """
         omnisharp_executable_path, dll_path = self.setupRuntimeDependencies(logger, config)
 
-        slnfilename = find_least_depth_sln_file(repository_root_path)
-        if slnfilename is None:
-            logger.log("No *.sln file found in repository", logging.ERROR)
-            raise MultilspyException("No SLN file found in repository")
+        if sln_path:
+            slnfilename = sln_path
+        else:
+            slnfilename = find_least_depth_sln_file(repository_root_path)
+            if slnfilename is None:
+                logger.log("No *.sln file found in repository", logging.ERROR)
+                raise MultilspyException("No SLN file found in repository")
 
         cmd = " ".join(
             [
@@ -413,23 +420,3 @@ class OmniSharp(LanguageServer):
 
             await self.server.shutdown()
             await self.server.stop()
-
-    async def get_code_actions(
-        self, file_path, range, diagnostics
-    ) -> Union[List, Tuple[List, Any]]:
-        self.import_choices=[]
-        code_action_params: CodeActionParams = {
-            "textDocument": {"uri": pathlib.Path(file_path).as_uri()},
-            "range": range,
-            "context": {"diagnostics":diagnostics}
-        }
-        response = None
-        num_retries = 0
-        while response is None:
-            await self.code_actions_available.wait()
-            response = await self.server.send.code_action(
-                code_action_params
-            )
-            num_retries += 1
-
-        return response, self.import_choices   ### In case there are import choices we return both choices

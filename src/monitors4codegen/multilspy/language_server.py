@@ -60,7 +60,11 @@ class LanguageServer:
     """
 
     @classmethod
-    def create(cls, config: MultilspyConfig, logger: MultilspyLogger, repository_root_path: str) -> "LanguageServer":
+    def create(cls,
+               config: MultilspyConfig,
+               logger: MultilspyLogger,
+               repository_root_path: str,
+               **kwargs) -> "LanguageServer":
         """
         Creates a language specific LanguageServer instance based on the given configuration, and appropriate settings for the programming language.
 
@@ -92,8 +96,8 @@ class LanguageServer:
             return RustAnalyzer(config, logger, repository_root_path)
         elif config.code_language == Language.CSHARP:
             from monitors4codegen.multilspy.language_servers.omnisharp.omnisharp import OmniSharp
-
-            return OmniSharp(config, logger, repository_root_path)
+            sln_path = kwargs.get('sln_path')
+            return OmniSharp(config, logger, repository_root_path, sln_path)
         else:
             logger.log(f"Language {config.code_language} is not supported", logging.ERROR)
             raise MultilspyException(f"Language {config.code_language} is not supported")
@@ -202,8 +206,9 @@ class LanguageServer:
             self.open_file_buffers[uri].ref_count -= 1
         else:
             if not pathlib.Path(absolute_file_path).is_file():
-                contents = ""
-                FileUtils.create_file(self.logger, absolute_file_path, contents)
+                pass # TODO: Decide between NO-OP and creating the file
+                # contents = ""
+                # FileUtils.create_file(self.logger, absolute_file_path, contents)
             else:
                 contents = FileUtils.read_file(self.logger, absolute_file_path)
 
@@ -285,7 +290,9 @@ class LanguageServer:
         else:
             if not pathlib.Path(absolute_file_path).is_file():
                 contents = ""
-                FileUtils.create_file(self.logger, absolute_file_path, contents)
+                pass # TODO: Decide between NO-OP and creating the file
+                # contents = ""
+                # FileUtils.create_file(self.logger, absolute_file_path, contents)
             else:
                 contents = FileUtils.read_file(self.logger, absolute_file_path)
 
@@ -326,7 +333,7 @@ class LanguageServer:
 
             self.open_file_buffers[uri].ref_count -= 1
         else:
-            self.open_file_buffers[uri].ref_count -= 1
+            raise MultilspyException(f"File {relative_file_path} is not open")
 
         if self.open_file_buffers[uri].ref_count == 0:
             self.server.notify.did_close_text_document(
@@ -1010,7 +1017,7 @@ class SyncLanguageServer:
 
     @classmethod
     def create(
-        cls, config: MultilspyConfig, logger: MultilspyLogger, repository_root_path: str
+        cls, config: MultilspyConfig, logger: MultilspyLogger, repository_root_path: str, **kwargs
     ) -> "SyncLanguageServer":
         """
         Creates a language specific LanguageServer instance based on the given configuration, and appropriate settings for the programming language.
@@ -1023,7 +1030,7 @@ class SyncLanguageServer:
 
         :return SyncLanguageServer: A language specific LanguageServer instance.
         """
-        return SyncLanguageServer(LanguageServer.create(config, logger, repository_root_path))
+        return SyncLanguageServer(LanguageServer.create(config, logger, repository_root_path, **kwargs))
 
     @contextmanager
     def open_file(self, relative_file_path: str) -> Iterator[None]:
