@@ -350,8 +350,8 @@ class OmniSharp(LanguageServer):
                     "FileOptions": {
                         "SystemExcludeSearchPatterns": [
                             "**/node_modules/**/*",
-                            "**/bin/**/*",
-                            "**/obj/**/*",
+                            # "**/bin/**/*",
+                            # "**/obj/**/*",
                             "**/.git/**/*",
                             "**/.git",
                             "**/.svn",
