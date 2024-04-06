@@ -23,9 +23,11 @@ class MultilspyLogger:
     Logger class
     """
 
-    def __init__(self, level = logging.INFO, ) -> None:
+    def __init__(self, level = logging.INFO, fh: logging.FileHandler = None) -> None:
         self.logger = logging.getLogger("multilspy")
         self.logger.setLevel(level)
+        if fh is not None:
+            self.logger.addHandler(fh)
 
     def log(self, debug_message: str, level: int, sanitized_error_message: str = "") -> None:
         """

@@ -438,11 +438,12 @@ class LanguageServer:
                 },
                 LSPConstants.CONTENT_CHANGES: [
                     {
-                        LSPConstants.RANGE: {
-                            "start": {"line": 0, "character": 0},
-                            "end": {"line": line, "character": column},
-                        },
-                        LSPConstants.TEXT: new_contents,
+                        'text': new_contents,
+                        # LSPConstants.RANGE: {
+                        #     "start": {"line": 0, "character": 0},
+                        #     "end": {"line": line, "character": column},
+                        # },
+                        # LSPConstants.TEXT: new_contents,
                     }
                 ],
             }
