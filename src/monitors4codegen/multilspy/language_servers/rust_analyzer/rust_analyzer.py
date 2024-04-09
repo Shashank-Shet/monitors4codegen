@@ -143,7 +143,7 @@ class RustAnalyzer(LanguageServer):
                 self.server_ready.set()
 
         async def window_log_message(msg):
-            self.logger.log(f"LSP: window/logMessage: {msg}", logging.INFO)
+            self.logger.info(f"LSP: window/logMessage: {msg}")
 
         self.server.on_request("client/registerCapability", register_capability_handler)
         self.server.on_notification("language/status", lang_status_handler)
@@ -155,13 +155,12 @@ class RustAnalyzer(LanguageServer):
         self.server.on_notification("experimental/serverStatus", check_experimental_status)
 
         async with super().start_server():
-            self.logger.log("Starting RustAnalyzer server process", logging.INFO)
+            self.logger.info("Starting RustAnalyzer server process")
             await self.server.start()
             initialize_params = self._get_initialize_params(self.repository_root_path)
 
-            self.logger.log(
-                "Sending initialize request from LSP client to LSP server and awaiting response",
-                logging.INFO,
+            self.logger.info(
+                "Sending initialize request from LSP client to LSP server and awaiting response"
             )
             init_response = await self.server.send.initialize(initialize_params)
             assert init_response["capabilities"]["textDocumentSync"]["change"] == 2

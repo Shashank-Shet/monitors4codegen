@@ -3,13 +3,11 @@ This file contains various utility functions like I/O operations, handling paths
 """
 
 import gzip
-import logging
 import os
 from typing import Tuple
 import requests
 import shutil
 import uuid
-
 import platform
 import subprocess
 from enum import Enum
@@ -39,7 +37,7 @@ class TextUtils:
             idx += 1
 
         return l, c
-    
+
     @staticmethod
     def get_index_from_line_col(text: str, line: int, col: int) -> int:
         """
@@ -53,7 +51,7 @@ class TextUtils:
             idx += 1
         idx += col
         return idx
-    
+
     @staticmethod
     def get_updated_position_from_line_and_column_and_edit(l: int, c: int, text_to_be_inserted: str) -> Tuple[int, int]:
         """
@@ -83,7 +81,7 @@ class PathUtils:
             from urllib.request import url2pathname
         except ImportError:
             # backwards compatability
-            from urlparse import urlparse
+            from urlparse import urlparse # type: ignore
             from urllib import unquote, url2pathname
         parsed = urlparse(uri)
         host = "{0}{0}{mnt}{0}".format(os.path.sep, mnt=parsed.netloc)
@@ -102,7 +100,7 @@ class FileUtils:
                 if content:
                     out_file.write(content)
         except Exception as exc:
-            logger.log(f"File creation '{file_path}' failed: {exc}", logging.ERROR)
+            logger.error(f"File creation '{file_path}' failed: {exc}")
             raise MultilspyException("File creation failed.") from None
 
     @staticmethod
@@ -119,9 +117,9 @@ class FileUtils:
                 except UnicodeError:
                     continue
         except Exception as exc:
-            logger.log(f"File read '{file_path}' failed: {exc}", logging.ERROR)
+            logger.error(f"File read '{file_path}' failed: {exc}")
             raise MultilspyException("File read failed.") from None
-        logger.log(f"File read '{file_path}' failed: Unsupported encoding.", logging.ERROR)
+        logger.error(f"File read '{file_path}' failed: Unsupported encoding.")
         raise MultilspyException(f"File read '{file_path}' failed: Unsupported encoding.") from None
 
     @staticmethod
@@ -132,12 +130,12 @@ class FileUtils:
         try:
             response = requests.get(url, stream=True, timeout=60)
             if response.status_code != 200:
-                logger.log(f"Error downloading file '{url}': {response.status_code} {response.text}", logging.ERROR)
+                logger.error(f"Error downloading file '{url}': {response.status_code} {response.text}")
                 raise MultilspyException("Error downoading file.")
             with open(target_path, "wb") as f:
                 shutil.copyfileobj(response.raw, f)
         except Exception as exc:
-            logger.log(f"Error downloading file '{url}': {exc}", logging.ERROR)
+            logger.error(f"Error downloading file '{url}': {exc}")
             raise MultilspyException("Error downoading file.") from None
 
     @staticmethod
@@ -165,10 +163,10 @@ class FileUtils:
                 with gzip.open(tmp_file_name, "rb") as f_in, open(target_path, "wb") as f_out:
                     shutil.copyfileobj(f_in, f_out)
             else:
-                logger.log(f"Unknown archive type '{archive_type}' for extraction", logging.ERROR)
+                logger.error(f"Unknown archive type '{archive_type}' for extraction")
                 raise MultilspyException(f"Unknown archive type '{archive_type}'")
         except Exception as exc:
-            logger.log(f"Error extracting archive '{tmp_file_name}' obtained from '{url}': {exc}", logging.ERROR)
+            logger.error(f"Error extracting archive '{tmp_file_name}' obtained from '{url}': {exc}")
             raise MultilspyException("Error extracting archive.") from exc
         finally:
             for tmp_file_name in tmp_files:

@@ -73,7 +73,7 @@ class OmniSharp(LanguageServer):
         else:
             slnfilename = find_least_depth_sln_file(repository_root_path)
             if slnfilename is None:
-                logger.log("No *.sln file found in repository", logging.ERROR)
+                logger.error("No *.sln file found in repository")
                 raise MultilspyException("No SLN file found in repository")
 
         cmd = " ".join(
@@ -262,7 +262,7 @@ class OmniSharp(LanguageServer):
                 self.server_ready.set()
 
         async def window_log_message(msg):
-            self.logger.log(f"LSP: window/logMessage: {msg}", logging.INFO)
+            self.logger.info(f"LSP: window/logMessage: {msg}")
 
         async def workspace_configuration_handler(params):
             # TODO: We do not know the appropriate way to handle this request. Should ideally contact the OmniSharp dev team
@@ -387,13 +387,12 @@ class OmniSharp(LanguageServer):
         self.server.on_request("workspace/configuration", workspace_configuration_handler)
 
         async with super().start_server():
-            self.logger.log("Starting OmniSharp server process", logging.INFO)
+            self.logger.info("Starting OmniSharp server process")
             await self.server.start()
             initialize_params = self._get_initialize_params(self.repository_root_path)
 
-            self.logger.log(
+            self.logger.info(
                 "Sending initialize request from LSP client to LSP server and awaiting response",
-                logging.INFO,
             )
             init_response = await self.server.send.initialize(initialize_params)
             self.server.notify.initialized({})

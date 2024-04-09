@@ -1,8 +1,8 @@
 """
-This file provides the implementation of the JSON-RPC client, that launches and 
+This file provides the implementation of the JSON-RPC client, that launches and
 communicates with the language server.
 
-The initial implementation of this file was obtained from 
+The initial implementation of this file was obtained from
 https://github.com/predragnikolic/OLSP under the MIT License with the following terms:
 
 MIT License
@@ -28,12 +28,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-from ast import Tuple
 import asyncio
 import dataclasses
 import json
 import os
-import pathlib
 from typing import Any, Dict, List, Optional, Union, Callable
 
 from .lsp_requests import LspNotification, LspRequest

@@ -3,59 +3,40 @@ Multilspy logger module.
 """
 import inspect
 import logging
-from datetime import datetime
-from pydantic import BaseModel
 
-class LogLine(BaseModel):
-    """
-    Represents a line in the Multilspy log
-    """
+class MultilspyLogger(logging.LoggerAdapter):
+    """ Custom Logger class for Multilspy.
 
-    time: str
-    level: str
-    caller_file: str
-    caller_name: str
-    caller_line: int
-    message: str
-
-class MultilspyLogger:
-    """
-    Logger class
+    Subclasses logging.LoggerAdapter to reuse the debug, info, warning, error, and critical methods.
+    Uses a custom formatting, and overrides the log method so every log event uses the custom format.
     """
 
     def __init__(self, level = logging.INFO, fh: logging.FileHandler = None) -> None:
-        self.logger = logging.getLogger("multilspy")
-        self.logger.setLevel(level)
-        if fh is not None:
-            self.logger.addHandler(fh)
+        logger = logging.getLogger("multilspy")
+        logger.setLevel(level)
+        if fh is None:
+            fh = logging.StreamHandler()
+        formatter = logging.Formatter('%(levelname)s - %(asctime)s - %(name)s - %(message)s')
+        fh.setFormatter(formatter)
+        logger.addHandler(fh)
+        super().__init__(logger, {})
 
-    def log(self, debug_message: str, level: int, sanitized_error_message: str = "") -> None:
+    def log(self, debug_message: str, level: int) -> None:
         """
-        Log the debug and santized messages using the logger
+        Log the messages using the logger
         """
 
         debug_message = debug_message.replace("'", '"').replace("\n", " ")
-        sanitized_error_message = sanitized_error_message.replace("'", '"').replace("\n", " ")
 
         # Collect details about the callee
         curframe = inspect.currentframe()
         calframe = inspect.getouterframes(curframe, 2)
         caller_file = calframe[1][1].split("/")[-1]
         caller_line = calframe[1][2]
-        caller_name = calframe[1][3]
+        # caller_name = calframe[1][3]
 
-        # Construct the debug log line
-        debug_log_line = LogLine(
-            time=str(datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
-            level=logging.getLevelName(level),
-            caller_file=caller_file,
-            caller_name=caller_name,
-            caller_line=caller_line,
-            message=debug_message,
-        )
+        msg = f"{caller_file}:{caller_line} - {debug_message}"
 
-
-        self.logger.log(
-            level=level,
-            msg=debug_log_line.model_dump_json(),
-        )
+        # By default the log method of LoggerAdapter, checks if the given event
+        # is allowed by the set level.
+        super().log(level, msg)

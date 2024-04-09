@@ -350,7 +350,7 @@ class EclipseJDTLS(LanguageServer):
             return []
 
         async def window_log_message(msg):
-            self.logger.log(f"LSP: window/logMessage: {msg}", logging.INFO)
+            self.logger.info(f"LSP: window/logMessage: {msg}")
 
         async def do_nothing(params):
             return
@@ -364,13 +364,12 @@ class EclipseJDTLS(LanguageServer):
         self.server.on_notification("language/actionableNotification", do_nothing)
 
         async with super().start_server():
-            self.logger.log("Starting EclipseJDTLS server process", logging.INFO)
+            self.logger.info("Starting EclipseJDTLS server process")
             await self.server.start()
             initialize_params = self._get_initialize_params(self.repository_root_path)
 
-            self.logger.log(
+            self.logger.info(
                 "Sending initialize request from LSP client to LSP server and awaiting response",
-                logging.INFO,
             )
             init_response = await self.server.send.initialize(initialize_params)
             assert init_response["capabilities"]["textDocumentSync"]["change"] == 2

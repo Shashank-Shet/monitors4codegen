@@ -99,7 +99,7 @@ class LanguageServer:
             sln_path = kwargs.get('sln_path')
             return OmniSharp(config, logger, repository_root_path, sln_path)
         else:
-            logger.log(f"Language {config.code_language} is not supported", logging.ERROR)
+            logger.error(f"Language {config.code_language} is not supported")
             raise MultilspyException(f"Language {config.code_language} is not supported")
 
     def __init__(
@@ -143,12 +143,10 @@ class LanguageServer:
         self.initialize_searcher_command_available = asyncio.Event()
 
         if config.trace_lsp_communication:
-
             def logging_fn(source, target, msg):
-                self.logger.log(f"LSP: {source} -> {target}: {str(msg)}", logging.DEBUG)
+                self.logger.debug(f"LSP: {source} -> {target}: {str(msg)}")
 
         else:
-
             def logging_fn(source, target, msg):
                 pass
 
@@ -188,9 +186,8 @@ class LanguageServer:
         :param relative_file_path: The relative path of the file to open.
         """
         if not self.server_started:
-            self.logger.log(
+            self.logger.error(
                 "open_file called before Language Server started",
-                logging.ERROR,
             )
             raise MultilspyException("Language Server not started")
 
@@ -245,9 +242,8 @@ class LanguageServer:
     #     :param relative_file_paths: The relative paths of the files to create.
     #     """
     #     if not self.server_started:
-    #         self.logger.log(
+    #         self.logger.error(
     #             "create_files called before Language Server started",
-    #             logging.ERROR,
     #         )
     #         raise MultilspyException("Language Server not started")
 
@@ -279,9 +275,8 @@ class LanguageServer:
         :param relative_file_paths: The relative paths of the files to create.
         """
         if not self.server_started:
-            self.logger.log(
+            self.logger.error(
                 "create_files called before Language Server started",
-                logging.ERROR,
             )
             raise MultilspyException("Language Server not started")
 
@@ -309,9 +304,8 @@ class LanguageServer:
         :param relative_file_path: The relative path of the file to save.
         """
         if not self.server_started:
-            self.logger.log(
+            self.logger.error(
                 "save_file called before Language Server started",
-                logging.ERROR,
             )
             raise MultilspyException("Language Server not started")
 
@@ -337,9 +331,8 @@ class LanguageServer:
         :param relative_file_path: The relative path of the file to open.
         """
         if not self.server_started:
-            self.logger.log(
+            self.logger.error(
                 "open_file called before Language Server started",
-                logging.ERROR,
             )
             raise MultilspyException("Language Server not started")
 
@@ -381,9 +374,8 @@ class LanguageServer:
         :param relative_file_path: The relative path of the file to open.
         """
         if not self.server_started:
-            self.logger.log(
+            self.logger.error(
                 "open_file called before Language Server started",
-                logging.ERROR,
             )
             raise MultilspyException("Language Server not started")
 
@@ -414,9 +406,8 @@ class LanguageServer:
         Expects the LSP to be started, and the file to be open. Does not close the file.
         """
         if not self.server_started:
-            self.logger.log(
+            self.logger.error(
                 "open_file called before Language Server started",
-                logging.ERROR,
             )
             raise MultilspyException("Language Server not started")
 
@@ -465,9 +456,8 @@ class LanguageServer:
         :param text_to_be_inserted: The text to insert.
         """
         if not self.server_started:
-            self.logger.log(
+            self.logger.error(
                 "insert_text_at_position called before Language Server started",
-                logging.ERROR,
             )
             raise MultilspyException("Language Server not started")
 
@@ -513,9 +503,8 @@ class LanguageServer:
         Delete text between the given start and end positions in the given file and return the deleted text.
         """
         if not self.server_started:
-            self.logger.log(
+            self.logger.error(
                 "insert_text_at_position called before Language Server started",
-                logging.ERROR,
             )
             raise MultilspyException("Language Server not started")
 
@@ -549,9 +538,8 @@ class LanguageServer:
         :param relative_file_path: The relative path of the file to open.
         """
         if not self.server_started:
-            self.logger.log(
+            self.logger.error(
                 "get_open_file_text called before Language Server started",
-                logging.ERROR,
             )
             raise MultilspyException("Language Server not started")
 
@@ -569,9 +557,8 @@ class LanguageServer:
     ):
         """ Go to the implementation of the symbol at the given line and column in the given file. """
         if not self.server_started:
-            self.logger.log(
+            self.logger.error(
                 "find_function_definition called before Language Server started",
-                logging.ERROR,
             )
             raise MultilspyException("Language Server not started")
 
@@ -613,9 +600,8 @@ class LanguageServer:
         """
 
         if not self.server_started:
-            self.logger.log(
+            self.logger.error(
                 "find_function_definition called before Language Server started",
-                logging.ERROR,
             )
             raise MultilspyException("Language Server not started")
 
@@ -702,9 +688,8 @@ class LanguageServer:
         """
 
         if not self.server_started:
-            self.logger.log(
+            self.logger.error(
                 "find_all_callers_of_function called before Language Server started",
-                logging.ERROR,
             )
             raise MultilspyException("Language Server not started")
 
@@ -763,9 +748,8 @@ class LanguageServer:
         :return List[multilspy_types.CompletionItem]: A list of completions
         """
         if not self.server_started:
-            self.logger.log(
+            self.logger.error(
                 "find_all_callers_of_function called before Language Server started",
-                logging.ERROR,
             )
             raise MultilspyException("Language Server not started")
 
@@ -875,9 +859,8 @@ class LanguageServer:
         :return Tuple[List[multilspy_types.UnifiedSymbolInformation], Union[List[multilspy_types.TreeRepr], None]]: A list of symbols in the file, and the tree representation of the symbols
         """
         if not self.server_started:
-            self.logger.log(
+            self.logger.error(
                 "find_all_callers_of_function called before Language Server started",
-                logging.ERROR,
             )
             raise MultilspyException("Language Server not started")
 
@@ -940,9 +923,8 @@ class LanguageServer:
         :return None
         """
         if not self.server_started:
-            self.logger.log(
+            self.logger.error(
                 "find_all_callers_of_function called before Language Server started",
-                logging.ERROR,
             )
             raise MultilspyException("Language Server not started")
 
@@ -981,9 +963,8 @@ class LanguageServer:
         line: int, character: int
     ):
         if not self.server_started:
-            self.logger.log(
+            self.logger.error(
                 "find_all_callers_of_function called before Language Server started",
-                logging.ERROR,
             )
             raise MultilspyException("Language Server not started")
 
@@ -1013,9 +994,8 @@ class LanguageServer:
         """ Get code actions for the given range and diagnostics in the given file.
         """
         if not self.server_started:
-            self.logger.log(
+            self.logger.error(
                 "find_all_callers_of_function called before Language Server started",
-                logging.ERROR,
             )
             raise MultilspyException("Language Server not started")
 
