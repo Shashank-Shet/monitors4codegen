@@ -173,11 +173,11 @@ class LanguageServerHandler:
         loop: An asyncio.AbstractEventLoop object that represents the event loop used by the handler.
     """
 
-    def __init__(self, process_launch_info: ProcessLaunchInfo, logger=None) -> None:
+    def __init__(self, process_launch_info: ProcessLaunchInfo, logger:Callable = None) -> None:
         """
         Params:
             cmd: A string that represents the command to launch the language server process.
-            logger: An optional function that takes two strings (source and destination) and
+            logger: An optional function that takes two strings (source and destination) and \
                 a payload dictionary, and logs the communication between the client and the server.
         """
         self.send = LspRequest(self.send_request)
