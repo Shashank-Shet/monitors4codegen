@@ -143,7 +143,7 @@ class RustAnalyzer(LanguageServer):
                 self.server_ready.set()
 
         async def window_log_message(msg):
-            self.logger.info(f"LSP: window/logMessage: {msg}")
+            self.logger.trace(f"LSP: window/logMessage: {msg}")
 
         self.server.on_request("client/registerCapability", register_capability_handler)
         self.server.on_notification("language/status", lang_status_handler)

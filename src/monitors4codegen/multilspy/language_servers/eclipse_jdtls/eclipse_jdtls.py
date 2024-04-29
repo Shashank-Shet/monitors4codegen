@@ -350,7 +350,7 @@ class EclipseJDTLS(LanguageServer):
             return []
 
         async def window_log_message(msg):
-            self.logger.info(f"LSP: window/logMessage: {msg}")
+            self.logger.trace(f"LSP: window/logMessage: {msg}")
 
         async def do_nothing(params):
             return

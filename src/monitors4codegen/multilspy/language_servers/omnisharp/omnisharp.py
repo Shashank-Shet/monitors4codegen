@@ -262,7 +262,7 @@ class OmniSharp(LanguageServer):
                 self.server_ready.set()
 
         async def window_log_message(msg):
-            self.logger.info(f"LSP: window/logMessage: {msg}")
+            self.logger.trace(f"LSP: window/logMessage: {msg}")
 
         async def workspace_configuration_handler(params):
             # TODO: We do not know the appropriate way to handle this request. Should ideally contact the OmniSharp dev team

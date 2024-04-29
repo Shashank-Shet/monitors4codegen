@@ -23,6 +23,7 @@ from .lsp_protocol_handler.server import (
     LanguageServerHandler,
     ProcessLaunchInfo,
 )
+from .lsp_protocol_handler import lsp_types
 from .multilspy_config import MultilspyConfig, Language
 from .multilspy_exceptions import MultilspyException
 from .multilspy_utils import PathUtils, FileUtils, TextUtils
@@ -52,6 +53,10 @@ class LSPFileBuffer:
     # reference count of the file
     ref_count: int
 
+def debug_line(s: str, colnum: int):
+    text = f"Line: {s}"
+    track_line = "^".rjust(colnum + len("Line: ") + 1)
+    return text, track_line
 
 class LanguageServer:
     """
@@ -144,7 +149,7 @@ class LanguageServer:
 
         if config.trace_lsp_communication:
             def logging_fn(source, target, msg):
-                self.logger.debug(f"LSP: {source} -> {target}: {str(msg)}")
+                self.logger.trace(f"LSP: {source} -> {target}: {str(msg)}")
 
         else:
             def logging_fn(source, target, msg):
@@ -197,35 +202,45 @@ class LanguageServer:
         if uri in self.open_file_buffers:
             assert self.open_file_buffers[uri].uri == uri
             assert self.open_file_buffers[uri].ref_count >= 1
-
             self.open_file_buffers[uri].ref_count += 1
+            self.logger.debug(f"File {uri} is already open, incrementing ref_count {self.open_file_buffers[uri].ref_count}")
             yield
             self.open_file_buffers[uri].ref_count -= 1
+            self.logger.debug(f"File {uri} is already open, decrementing ref_count {self.open_file_buffers[uri].ref_count}")
         else:
             if not pathlib.Path(absolute_file_path).is_file():
+                self.logger.warning(f"File {absolute_file_path} does not exist")
                 contents = ""
-                # raise MultilspyException(f"File {absolute_file_path} does not exist")
-                pass
+                raise MultilspyException(f"File {absolute_file_path} does not exist")
             else:
                 contents = FileUtils.read_file(self.logger, absolute_file_path)
 
             version = 0
+            self.logger.debug(f"Creating buffer with params: {uri} \t {self.language_id}")
             self.open_file_buffers[uri] = LSPFileBuffer(uri, contents, version, self.language_id, 1)
 
+            self.logger.debug(f"Opening file with params: {uri} \t {self.language_id}")
             self.server.notify.did_open_text_document(
                 {
                     LSPConstants.TEXT_DOCUMENT: {
                         LSPConstants.URI: uri,
                         LSPConstants.LANGUAGE_ID: self.language_id,
-                        LSPConstants.VERSION: 0,
+                        LSPConstants.VERSION: version,
                         LSPConstants.TEXT: contents,
                     }
                 }
             )
-            yield
+            try:
+                yield
+            except Exception as e:
+                # VVIMP!
+                # If an error occurs while a file is opened, it wouldn't be closed without this code.
+                self.logger.error("Error in open_file context manager body")
+                self.logger.error(str(e))
             self.open_file_buffers[uri].ref_count -= 1
 
         if self.open_file_buffers[uri].ref_count == 0:
+            self.logger.debug(f"Closing file {uri}")
             self.server.notify.did_close_text_document(
                 {
                     LSPConstants.TEXT_DOCUMENT: {
@@ -234,6 +249,7 @@ class LanguageServer:
                 }
             )
             del self.open_file_buffers[uri]
+            self.logger.debug(f"Deleted file buffer with uri: {uri}")
 
     # async def create_files(self, relative_file_paths: List[str]) -> None:
     #     """
@@ -274,6 +290,7 @@ class LanguageServer:
 
         :param relative_file_paths: The relative paths of the files to create.
         """
+        # TODO: Fix method
         if not self.server_started:
             self.logger.error(
                 "create_files called before Language Server started",
@@ -342,25 +359,29 @@ class LanguageServer:
         if uri in self.open_file_buffers:
             assert self.open_file_buffers[uri].uri == uri
             assert self.open_file_buffers[uri].ref_count >= 1
-
+            self.logger.debug(f"File {uri} is already open, incrementing ref_count {self.open_file_buffers[uri].ref_count}")
             self.open_file_buffers[uri].ref_count += 1
         else:
             if not pathlib.Path(absolute_file_path).is_file():
+                self.logger.warning(f"File {absolute_file_path} does not exist")
                 contents = ""
-                # raise MultilspyException(f"File {absolute_file_path} does not exist")
+                raise MultilspyException(f"File {absolute_file_path} does not exist")
                 pass
             else:
                 contents = FileUtils.read_file(self.logger, absolute_file_path)
+                self.logger.debug(f"File {absolute_file_path} contents:\n {contents}")
 
             version = 0
+            self.logger.debug(f"Creating buffer with params: {uri} \t {self.language_id}")
             self.open_file_buffers[uri] = LSPFileBuffer(uri, contents, version, self.language_id, 1)
 
+            self.logger.debug(f"Opening file with params: {uri} \t {self.language_id}")
             self.server.notify.did_open_text_document(
                 {
                     LSPConstants.TEXT_DOCUMENT: {
                         LSPConstants.URI: uri,
                         LSPConstants.LANGUAGE_ID: self.language_id,
-                        LSPConstants.VERSION: 0,
+                        LSPConstants.VERSION: version,
                         LSPConstants.TEXT: contents,
                     }
                 }
@@ -385,12 +406,14 @@ class LanguageServer:
         if uri in self.open_file_buffers:
             assert self.open_file_buffers[uri].uri == uri
             assert self.open_file_buffers[uri].ref_count >= 1
-
             self.open_file_buffers[uri].ref_count -= 1
+            self.logger.debug(f"File {uri} is already open, decrementing ref_count {self.open_file_buffers[uri].ref_count}")
         else:
+            self.logger.error(f"Tried closing file {uri} which is not open")
             raise MultilspyException(f"File {relative_file_path} is not open")
 
         if self.open_file_buffers[uri].ref_count == 0:
+            self.logger.debug(f"Closing file: {uri}")
             self.server.notify.did_close_text_document(
                 {
                     LSPConstants.TEXT_DOCUMENT: {
@@ -399,6 +422,7 @@ class LanguageServer:
                 }
             )
             del self.open_file_buffers[uri]
+            self.logger.debug(f"Deleted file buffer with uri: {uri}")
         return
 
     def update_open_file(self, relative_file_path: str, new_contents: str) -> None:
@@ -415,12 +439,15 @@ class LanguageServer:
         uri = pathlib.Path(absolute_file_path).as_uri()
 
         if uri not in self.open_file_buffers:
+            self.logger.error(f"File {uri} is not open")
             raise MultilspyException(f"File {relative_file_path} is not open")
+        self.logger.debug(f"New contents:\n{new_contents}")
         self.open_file_buffers[uri].contents = new_contents
         self.open_file_buffers[uri].version += 1
         file_buffer = self.open_file_buffers[uri]
         line = new_contents.count("\n")
         column = len(new_contents.split("\n")[-1])
+        self.logger.debug(f"Change text document with params: {uri} \t {file_buffer.version}")
         self.server.notify.did_change_text_document(
             {
                 LSPConstants.TEXT_DOCUMENT: {
@@ -439,7 +466,6 @@ class LanguageServer:
                 ],
             }
         )
-        # print(new_contents[:20])
         return multilspy_types.Position(line=line, character=column)
 
 
@@ -546,14 +572,18 @@ class LanguageServer:
         absolute_file_path = str(PurePath(self.repository_root_path, relative_file_path))
         uri = pathlib.Path(absolute_file_path).as_uri()
 
+        self.logger.debug(f"Retrieving contents for file: {uri}")
         # Ensure the file is open
-        assert uri in self.open_file_buffers
+        if uri not in self.open_file_buffers:
+            self.logger.error(f"File {uri} is not open")
+            raise MultilspyException(f"File {relative_file_path} is not open")
 
         file_buffer = self.open_file_buffers[uri]
+        self.logger.debug(f"Contents:\n{file_buffer.contents}")
         return file_buffer.contents
 
     async def go_to_implementation(
-        self, relative_file_path: str, line: int, column: int, open_file_if_not_open: bool = False
+        self, relative_file_path: str, line: int, column: int
     ):
         """ Go to the implementation of the symbol at the given line and column in the given file. """
         if not self.server_started:
@@ -565,13 +595,15 @@ class LanguageServer:
         absolute_file_path = str(PurePath(self.repository_root_path, relative_file_path))
         uri = pathlib.Path(absolute_file_path).as_uri()
 
-        if uri not in self.open_file_buffers and not open_file_if_not_open:
+        if uri not in self.open_file_buffers:
+            self.logger.debug(f"File {uri} is not open")
             raise MultilspyException(f"File {relative_file_path} is not open")
-        elif uri not in self.open_file_buffers:
-            self.open_file_manual(relative_file_path)
-            remember_to_close = True
 
         try:
+            self.logger.debug(f"Go to implementation for {uri} at line {line} and column {column}")
+            line_text, track_line = debug_line(self.open_file_buffers[uri].contents.split("\n")[line], column)
+            self.logger.debug(f"{line_text}")
+            self.logger.debug(f"{track_line}")
             response = await self.server.send.implementation(
                 {
                     LSPConstants.TEXT_DOCUMENT: { LSPConstants.URI: uri },
@@ -579,10 +611,9 @@ class LanguageServer:
                 }
             )
             implementation_uri = response["uri"]
+            self.logger.debug(f"Implementation URI: {implementation_uri}")
             return implementation_uri, response["range"]
         except Exception as e:
-            if remember_to_close:
-                self.close_file_manual(relative_file_path)
             raise MultilspyException(f"Error in go_to_implementation: {e}")
 
     async def request_definition(
@@ -609,23 +640,27 @@ class LanguageServer:
         uri = pathlib.Path(absolute_file_path).as_uri()
 
         if uri not in self.open_file_buffers:
+            self.logger.error(f"File {uri} is not open")
             raise MultilspyException(f"File {relative_file_path} is not open")
 
-        with self.open_file(relative_file_path):
-            try:
-                response = await self.server.send.definition(
-                    {
-                        LSPConstants.TEXT_DOCUMENT: {
-                            LSPConstants.URI: uri
-                        },
-                        LSPConstants.POSITION: {
-                            LSPConstants.LINE: line,
-                            LSPConstants.CHARACTER: column,
-                        },
-                    }
-                )
-            except Exception as e:
-                raise MultilspyException(f"Error in request_definition: {e}")
+        try:
+            self.logger.debug(f"Requesting definition for {uri} at line {line} and column {column}")
+            line_text, track_line = debug_line(self.open_file_buffers[uri].contents.split("\n")[line], column)
+            self.logger.debug(f"{line_text}")
+            self.logger.debug(f"{track_line}")
+            response = await self.server.send.definition(
+                {
+                    LSPConstants.TEXT_DOCUMENT: {
+                        LSPConstants.URI: uri
+                    },
+                    LSPConstants.POSITION: {
+                        LSPConstants.LINE: line,
+                        LSPConstants.CHARACTER: column,
+                    },
+                }
+            )
+        except Exception as e:
+            raise MultilspyException(f"Error in request_definition: {e}")
 
         ret: List[multilspy_types.Location] = []
         if isinstance(response, list):
@@ -656,6 +691,7 @@ class LanguageServer:
                     ret.append(multilspy_types.Location(**new_item))
                 else:
                     assert False, f"Unexpected response from Language Server: {item}"
+                self.logger.debug(f"Definition item: {new_item.uri}")
         elif isinstance(response, dict):
             # response is of type Location
             assert LSPConstants.URI in response
@@ -667,7 +703,9 @@ class LanguageServer:
             new_item["relativePath"] = str(
                 PurePath(os.path.relpath(new_item["absolutePath"], self.repository_root_path))
             )
+            self.logger.debug(f"Definition item: {new_item.uri}")
             ret.append(multilspy_types.Location(**new_item))
+
         else:
             assert False, f"Unexpected response from Language Server: {response}"
 
@@ -733,6 +771,13 @@ class LanguageServer:
 
         return ret
 
+    async def resolve_completion(
+        self, completion_item: lsp_types.CompletionItem
+    ):
+        if 'data' not in completion_item or '$$__handler_id__$$' not in completion_item['data']:
+            raise MultilspyException("Completion item resolution won't work. See if this field is being removed in request_completoins")
+        return await self.server.send.resolve_completion_item(completion_item)
+
     async def request_completions(
         self, relative_file_path: str, line: int, column: int,
         allow_incomplete: bool = False,
@@ -757,34 +802,40 @@ class LanguageServer:
         uri = pathlib.Path(absolute_file_path).as_uri()
 
         if uri not in self.open_file_buffers:
+            self.logger.error(f"File {uri} is not open")
             raise MultilspyException(f"File {relative_file_path} is not open")
 
-        with self.open_file(relative_file_path):
-            try:
-                completion_params: LSPTypes.CompletionParams = {
-                    LSPConstants.POSITION: {
-                        LSPConstants.LINE: line,
-                        LSPConstants.CHARACTER: column
-                    },
-                    LSPConstants.TEXT_DOCUMENT: { LSPConstants.URI: uri },
-                    "context": {"triggerKind": LSPTypes.CompletionTriggerKind.Invoked},
-                }
-                response: Union[List[LSPTypes.CompletionItem], LSPTypes.CompletionList, None] = None
+        try:
+            self.logger.debug(f"Requesting completions for {uri} at line {line} and column {column}")
+            line_text, track_line = debug_line(self.open_file_buffers[uri].contents.split("\n")[line], column)
+            self.logger.debug(f"{line_text}")
+            self.logger.debug(f"{track_line}")
+            completion_params: LSPTypes.CompletionParams = {
+                LSPConstants.POSITION: {
+                    LSPConstants.LINE: line,
+                    LSPConstants.CHARACTER: column
+                },
+                LSPConstants.TEXT_DOCUMENT: { LSPConstants.URI: uri },
+                "context": {"triggerKind": LSPTypes.CompletionTriggerKind.Invoked},
+            }
+            response: Union[List[LSPTypes.CompletionItem], LSPTypes.CompletionList, None] = None
 
-                num_retries = 0
-                while response is None or (response["isIncomplete"] and num_retries < 30):
-                    await self.completions_available.wait()
-                    response: Union[
-                        List[LSPTypes.CompletionItem], LSPTypes.CompletionList, None
-                    ] = await self.server.send.completion(completion_params)
-                    if isinstance(response, list):
-                        response = {"items": response, "isIncomplete": False}
-                    num_retries += 1
-            except Exception as e:
-                raise MultilspyException(f"Error in request_completions: {e}")
+            num_retries = 0
+            while response is None or (response["isIncomplete"] and num_retries < 30):
+                await self.completions_available.wait()
+                self.logger.debug(f"Completions request, try: {num_retries}")
+                response: Union[
+                    List[LSPTypes.CompletionItem], LSPTypes.CompletionList, None
+                ] = await self.server.send.completion(completion_params)
+                if response is not None and isinstance(response, list):
+                    response = {"items": response, "isIncomplete": False}
+                num_retries += 1
+        except Exception as e:
+            raise MultilspyException(f"Error in request_completions: {e}")
 
         # TODO: Understand how to appropriately handle `isIncomplete`
         if response is None or (response["isIncomplete"] and not(allow_incomplete)):
+            self.logger.warning(f"Incompleted completions response when not allowed: {response}")
             return []
 
         if "items" in response:
@@ -792,8 +843,25 @@ class LanguageServer:
 
         response: List[LSPTypes.CompletionItem] = response
 
-        # TODO: Handle the case when the completion is a keyword
+        for item in response:
+            assert "insertText" in item or "textEdit" in item
+            assert "kind" in item
+            if "label" in item:
+                item["completionText"] = item["label"]
+            elif "insertText" in item:
+                item["completionText"] = item["insertText"]
+            elif "textEdit" in item and "newText" in item["textEdit"]:
+                item["completionText"] = item["textEdit"]["newText"]
+            elif "textEdit" in item and "insert" in item["textEdit"]:
+                assert False
+            else:
+                assert False
+            pass
+        return response
+
+
         items = [item for item in response if item["kind"] != LSPTypes.CompletionItemKind.Keyword]
+        # TODO: Handle the case when the completion is a keyword
 
         completions_list: List[multilspy_types.CompletionItem] = []
 
@@ -836,6 +904,7 @@ class LanguageServer:
                 assert False
 
             completion_item = multilspy_types.CompletionItem(**completion_item)
+            self.logger.debug(f"Completions item: {completion_item['completionText']}")
             completions_list.append(completion_item)
 
         return [
@@ -972,16 +1041,24 @@ class LanguageServer:
         uri = pathlib.Path(absolute_file_path).as_uri()
 
         if uri not in self.open_file_buffers:
+            self.logger.error(f"File {uri} is not open")
             raise MultilspyException(f"File {relative_file_path} is not open")
 
-        params: LSPTypes.SignatureHelpParams = {
-            LSPConstants.TEXT_DOCUMENT: { LSPConstants.URI: uri },
-            LSPConstants.POSITION: {
-                LSPConstants.LINE: line,
-                LSPConstants.CHARACTER: character
+        try:
+            params: LSPTypes.SignatureHelpParams = {
+                LSPConstants.TEXT_DOCUMENT: { LSPConstants.URI: uri },
+                LSPConstants.POSITION: {
+                    LSPConstants.LINE: line,
+                    LSPConstants.CHARACTER: character
+                }
             }
-        }
-        response = await self.server.send.signature_help(params)
+            self.logger.debug(f"Requesting signature help for {uri} at line {line} and column {character}")
+            line_text, track_line = debug_line(self.open_file_buffers[uri].contents.split("\n")[line], character)
+            self.logger.debug(f"{line_text}")
+            self.logger.debug(f"{track_line}")
+            response = await self.server.send.signature_help(params)
+        except Exception as e:
+            raise MultilspyException(f"Error in request_signature_help: {e}")
         return response
 
     async def get_code_actions(
@@ -1001,6 +1078,14 @@ class LanguageServer:
 
         absolute_file_path = str(PurePath(self.repository_root_path, relative_file_path))
         uri = pathlib.Path(absolute_file_path).as_uri()
+
+        if uri not in self.open_file_buffers:
+            self.logger.error(f"File {uri} is not open")
+            raise MultilspyException(f"File {relative_file_path} is not open")
+
+        self.logger.debug(f"Requesting code actions for {uri} between {start} and {end}")
+        for d in diagnostics:
+            self.logger.debug(f"Diagnostic item: {d}")
         code_action_params: LSPTypes.CodeActionParams = {
             LSPConstants.TEXT_DOCUMENT: { LSPConstants.URI: uri },
             LSPConstants.RANGE: {
@@ -1011,13 +1096,16 @@ class LanguageServer:
         }
         response = None
         num_retries = 0
-        while response is None:
-            await self.code_actions_available.wait()
-            response = await self.server.send.code_action(
-                code_action_params
-            )
-            num_retries += 1
-
+        try:
+            while response is None:
+                await self.code_actions_available.wait()
+                self.logger.debug(f"Code actions request, try: {num_retries}")
+                response = await self.server.send.code_action(
+                    code_action_params
+                )
+                num_retries += 1
+        except Exception as e:
+            raise MultilspyException(f"Error in get_code_actions: {e}")
         return response
 
 
@@ -1032,6 +1120,7 @@ class SyncLanguageServer:
         self.language_server = language_server
         self.loop = None
         self.loop_thread = None
+        self.logger = language_server.logger
 
     def exists(self, rel_fpath: str) -> bool:
         absolute_file_path = str(PurePath(self.language_server.repository_root_path, rel_fpath))
@@ -1062,9 +1151,13 @@ class SyncLanguageServer:
         :param relative_file_path: The relative path of the file to open.
         """
         if not self.exists(relative_file_path):
+            # Potentially problematic, test further
             self.create_files([relative_file_path])
+        self.logger.debug(f"Opening file: {relative_file_path}")
         with self.language_server.open_file(relative_file_path):
             yield
+        self.logger.debug(f"Closing file: {relative_file_path}")
+
 
     def open_file_manual(self, relative_file_path: str) -> None:
         if not self.exists(relative_file_path):
@@ -1101,6 +1194,7 @@ class SyncLanguageServer:
         :param relative_file_path: The relative path of the file to open.
         :param new_contents: The new contents of the file.
         """
+        self.logger.debug(f"updating file contents for {relative_file_path}")
         return self.language_server.update_open_file(relative_file_path, new_contents)
 
     def delete_text_between_positions(
@@ -1120,6 +1214,7 @@ class SyncLanguageServer:
 
         :param relative_file_path: The relative path of the file to open.
         """
+        self.logger.debug(f"getting file contents for {relative_file_path}")
         return self.language_server.get_open_file_text(relative_file_path)
 
     @contextmanager
@@ -1150,9 +1245,11 @@ class SyncLanguageServer:
 
         :return List[multilspy_types.Location]: A list of locations where the symbol is defined
         """
+        self.logger.debug("request_definition called")
         result = asyncio.run_coroutine_threadsafe(
             self.language_server.request_definition(file_path, line, column), self.loop
         ).result()
+        self.logger.debug("request_definition concluded")
         return result
 
     def request_references(self, file_path: str, line: int, column: int) -> List[multilspy_types.Location]:
@@ -1166,9 +1263,11 @@ class SyncLanguageServer:
 
         :return List[multilspy_types.Location]: A list of locations where the symbol is referenced
         """
+        self.logger.debug("request_references called")
         result = asyncio.run_coroutine_threadsafe(
             self.language_server.request_references(file_path, line, column), self.loop
         ).result()
+        self.logger.debug("request_references concluded")
         return result
 
     def request_completions(
@@ -1184,10 +1283,23 @@ class SyncLanguageServer:
 
         :return List[multilspy_types.CompletionItem]: A list of completions
         """
+        self.logger.debug("request_completions called")
         result = asyncio.run_coroutine_threadsafe(
             self.language_server.request_completions(relative_file_path, line, column, allow_incomplete),
             self.loop,
         ).result()
+        self.logger.debug("request_completions concluded")
+        return result
+
+    def resolve_completion(
+        self, completion_item: lsp_types.CompletionItem
+    ):
+        self.logger.debug(f"resolve_completion called for {completion_item['label']}")
+        result = asyncio.run_coroutine_threadsafe(
+            self.language_server.resolve_completion(completion_item),
+            self.loop
+        ).result()
+        self.logger.debug("resolve_completion concluded")
         return result
 
     def request_document_symbols(self, relative_file_path: str) -> Tuple[List[multilspy_types.UnifiedSymbolInformation], Union[List[multilspy_types.TreeRepr], None]]:
@@ -1199,9 +1311,11 @@ class SyncLanguageServer:
 
         :return Tuple[List[multilspy_types.UnifiedSymbolInformation], Union[List[multilspy_types.TreeRepr], None]]: A list of symbols in the file, and the tree representation of the symbols
         """
+        self.logger.debug(f"request_document_symbols called for {relative_file_path}")
         result = asyncio.run_coroutine_threadsafe(
             self.language_server.request_document_symbols(relative_file_path), self.loop
         ).result()
+        self.logger.debug(f"request_document_symbols concluded for {relative_file_path}")
         return result
 
     def request_hover(self, relative_file_path: str, line: int, column: int) -> Union[multilspy_types.Hover, None]:
@@ -1215,9 +1329,11 @@ class SyncLanguageServer:
 
         :return None
         """
+        self.logger.debug("request_hover called")
         result = asyncio.run_coroutine_threadsafe(
             self.language_server.request_hover(relative_file_path, line, column), self.loop
         ).result()
+        self.logger.debug("request_hover concluded")
         return result
 
     def create_files(self, rel_fpaths):
@@ -1246,20 +1362,24 @@ class SyncLanguageServer:
         character: int
     ):
         """ Synchoronous wrapper around the request_signature_help method of the LanguageServer class."""
+        self.logger.debug("request_signature_help called")
         result = asyncio.run_coroutine_threadsafe(
             self.language_server.request_signature_help(relative_fpath, line, character),
             self.loop
         ).result()
+        self.logger.debug("request_signature_help concluded")
         return result
 
     def go_to_implementation(
         self, relative_file_path: str, line: int, column: int, open_file_if_not_open: bool = False
     ):
         """ Synchoronous wrapper around the go_to_implementation method of the LanguageServer class."""
+        self.logger.debug("go_to_implementation called")
         result = asyncio.run_coroutine_threadsafe(
             self.language_server.go_to_implementation(relative_file_path, line, column, open_file_if_not_open),
             self.loop
         ).result()
+        self.logger.debug("go_to_implementation concluded")
         return result
 
     def get_code_actions(
@@ -1273,8 +1393,10 @@ class SyncLanguageServer:
 
         TODO: Add type annotations
         """
+        self.logger.debug(f"Getting code actions for {relative_fpath}, beginning")
         result = asyncio.run_coroutine_threadsafe(
             self.language_server.get_code_actions(relative_fpath, start, end, diagnostics),
             self.loop
         ).result()
+        self.logger.debug(f"Getting code actions for {relative_fpath}, concluded")
         return result
