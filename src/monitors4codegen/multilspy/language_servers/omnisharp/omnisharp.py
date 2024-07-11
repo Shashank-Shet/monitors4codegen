@@ -92,12 +92,12 @@ class OmniSharp(LanguageServer):
                 "trace",
                 "--plugin",
                 dll_path,
-                "FileOptions:SystemExcludeSearchPatterns:0=**/.git",
-                "FileOptions:SystemExcludeSearchPatterns:1=**/.svn",
-                "FileOptions:SystemExcludeSearchPatterns:2=**/.hg",
-                "FileOptions:SystemExcludeSearchPatterns:3=**/CVS",
-                "FileOptions:SystemExcludeSearchPatterns:4=**/.DS_Store",
-                "FileOptions:SystemExcludeSearchPatterns:5=**/Thumbs.db",
+                "FileOptions:SystemExcludeSearchPatterns:0=\"**/.git\"",
+                "FileOptions:SystemExcludeSearchPatterns:1=\"**/.svn\"",
+                "FileOptions:SystemExcludeSearchPatterns:2=\"**/.hg\"",
+                "FileOptions:SystemExcludeSearchPatterns:3=\"**/CVS\"",
+                "FileOptions:SystemExcludeSearchPatterns:4=\"**/.DS_Store\"",
+                "FileOptions:SystemExcludeSearchPatterns:5=\"**/Thumbs.db\"",
                 "RoslynExtensionsOptions:EnableAnalyzersSupport=true",
                 "FormattingOptions:EnableEditorConfigSupport=true",
                 "RoslynExtensionsOptions:EnableImportCompletion=true",
@@ -164,11 +164,12 @@ class OmniSharp(LanguageServer):
         assert dotnet_version in [
             DotnetVersion.V6,
             DotnetVersion.V7,
+            DotnetVersion.V8,
         ], "Only dotnet version 6 and 7 are supported in multilspy at the moment"
 
         # TODO: Do away with this assumption
         # Currently, runtime binaries are not available for .Net 7. Hence, we assume .Net 6 runtime binaries to be compatible with .Net 7
-        if dotnet_version == DotnetVersion.V7:
+        if dotnet_version == DotnetVersion.V7 or dotnet_version == DotnetVersion.V8:
             dotnet_version = DotnetVersion.V6
 
         runtime_dependencies = d["runtimeDependencies"]
@@ -192,9 +193,11 @@ class OmniSharp(LanguageServer):
         omnisharp_ls_dir = os.path.join(os.path.dirname(__file__), "static", "OmniSharp")
         if not os.path.exists(omnisharp_ls_dir):
             os.makedirs(omnisharp_ls_dir)
+            logger.info("Downloading Omnisharp (may take some time)")
             FileUtils.download_and_extract_archive(
                 logger, runtime_dependencies["OmniSharp"]["url"], omnisharp_ls_dir, "zip"
             )
+            logger.info("Download and setup completed")
         omnisharp_executable_path = os.path.join(omnisharp_ls_dir, runtime_dependencies["OmniSharp"]["binaryName"])
         assert os.path.exists(omnisharp_executable_path)
         os.chmod(omnisharp_executable_path, stat.S_IEXEC)
@@ -202,9 +205,11 @@ class OmniSharp(LanguageServer):
         razor_omnisharp_ls_dir = os.path.join(os.path.dirname(__file__), "static", "RazorOmnisharp")
         if not os.path.exists(razor_omnisharp_ls_dir):
             os.makedirs(razor_omnisharp_ls_dir)
+            logger.info("Downloading RazorOmnisharp")
             FileUtils.download_and_extract_archive(
                 logger, runtime_dependencies["RazorOmnisharp"]["url"], razor_omnisharp_ls_dir, "zip"
             )
+            logger.info("Download and setup completed")
         razor_omnisharp_dll_path = os.path.join(
             razor_omnisharp_ls_dir, runtime_dependencies["RazorOmnisharp"]["dll_path"]
         )
